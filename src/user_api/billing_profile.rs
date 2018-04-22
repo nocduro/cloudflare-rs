@@ -23,7 +23,7 @@ pub struct BillingProfile {
 }
 
 pub fn billing_profile(api: &Cloudflare) -> Result<BillingProfile, Error> {
-    Ok(api.make_request(Get, "user/billing/profile").expect("billing_profile"))
+    Ok(api.make_request(Get, "user/billing/profile")?)
 }
 
 #[cfg(test)]

@@ -22,7 +22,7 @@ pub struct User {
 }
 
 pub fn user_details(api: &Cloudflare) -> Result<User, Error> {
-    Ok(api.make_request(Get, "user").unwrap())
+    Ok(api.make_request(Get, "user")?)
 }
 
 #[allow(unused)]

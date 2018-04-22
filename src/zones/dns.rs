@@ -35,6 +35,7 @@ pub struct DnsRecord {
     data: Option<HashMap<String, String>>,
 }
 
+/// Need `Display` so we can call `.to_string()` when dealing with the API.
 impl fmt::Display for RecordType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self, f)
@@ -56,7 +57,7 @@ pub fn create_dns_entry(
             ("name", name),
             ("content", content),
         ],
-    ).unwrap())
+    )?)
 }
 
 pub fn list_dns_records(api: &Cloudflare, zone: &str) -> Result<Vec<DnsRecord>, Error> {
@@ -64,7 +65,7 @@ pub fn list_dns_records(api: &Cloudflare, zone: &str) -> Result<Vec<DnsRecord>, 
 }
 
 pub fn list_dns_of_type(api: &Cloudflare, zone: &str, record_type: RecordType) -> Result<Vec<DnsRecord>, Error> {
-    Ok(api.get_all_params(&format!("zones/{}/dns_records", zone), &[("per_page", "2"), ("type", &record_type.to_string())])?)
+    Ok(api.get_all_params(&format!("zones/{}/dns_records", zone), &[("type", &record_type.to_string())])?)
 }
 
 #[cfg(test)]
