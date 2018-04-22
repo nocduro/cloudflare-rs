@@ -225,7 +225,7 @@ mod testenv {
 
     lazy_static! {
         static ref API_KEY: String = dotenv::var("cloudflare_key").unwrap();
-        static ref EMAIL: String = dotenv::var("email").unwrap();
+        static ref EMAIL: String = dotenv::var("cloudflare_email").unwrap();
         pub static ref DOMAIN: String = dotenv::var("domain").unwrap();
         pub static ref API: Cloudflare =
             Cloudflare::new(&API_KEY, &EMAIL, "https://api.cloudflare.com/client/v4/").unwrap();
