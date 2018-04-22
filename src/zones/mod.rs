@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn get_zone_id_test() {
         let _ = env_logger::try_init();
-        let zone_id = ::zones::get_zoneid(&API, &DOMAIN);
+        let zone_id = get_zoneid(&API, &DOMAIN);
         assert!(zone_id.is_ok());
         let zone_id = zone_id.unwrap();
         println!("zone id of {}: {}", DOMAIN.to_string(), zone_id);
