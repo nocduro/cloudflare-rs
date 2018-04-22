@@ -6,6 +6,8 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate url;
+#[macro_use]
+extern crate log;
 
 #[cfg(test)]
 extern crate dotenv;
@@ -21,6 +23,10 @@ use std::fmt::Debug;
 use self::url::Url;
 
 pub mod user_api;
+pub mod zones;
+pub mod errors;
+
+pub use errors::{Error, Result};
 
 header! { (XAuthKey, "X-Auth-Key") => [String] }
 header! { (XAuthEmail, "X-Auth-Email") => [String] }
@@ -65,96 +71,164 @@ pub enum AuthType {
     AuthUserService,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    InvalidOptions,
-    NotSuccess,
-}
-
 impl Cloudflare {
-    pub fn new(key: &str, email: &str, base_url: &str) -> Result<Cloudflare, Error> {
+    pub fn new(key: &str, email: &str, base_url: &str) -> Result<Cloudflare> {
         Ok(Cloudflare {
             api_key: key.to_string(),
             api_email: email.to_string(),
             api_user_service_key: None,
             organization_id: None,
             client: reqwest::Client::new(),
-            base_url: Url::parse(base_url).map_err(|_| Error::InvalidOptions)?,
+            base_url: Url::parse(base_url)?,
             auth_type: AuthType::AuthKeyEmail,
         })
     }
 
-    fn execute_request<T>(&self, method: reqwest::Method, url: Url) -> Result<Response<T>, Error>
+    fn execute_request<T>(&self, method: reqwest::Method, url: Url) -> Result<Response<T>>
     where
-        T: DeserializeOwned,
+        T: Debug + DeserializeOwned,
     {
+        debug!("executing request: {:?}", url);
         let mut request = reqwest::Request::new(method, url);
         request.headers_mut().set(XAuthKey(self.api_key.clone()));
         request
             .headers_mut()
             .set(XAuthEmail(self.api_email.clone()));
 
-        let mut response = self.client.execute(request).unwrap();
+        let mut response = self.client.execute(request)?;
 
         // read in response, and deserialize
         let mut response_json = String::new();
-        response
-            .read_to_string(&mut response_json)
-            .expect("read to string error");
+        response.read_to_string(&mut response_json)?;
 
-        let parsed: Response<T> = serde_json::from_str(&response_json).expect("parse error");
+        debug!("response_json: {}", response_json);
+        let parsed: Response<T> = serde_json::from_str(&response_json)?;
         if !parsed.success {
+            // handle Cloudflare specific errors here
+            debug!("parsed struct: {:?}", parsed);
             return Err(Error::NotSuccess);
         }
 
         Ok(parsed)
     }
 
-    fn make_request<T>(&self, method: reqwest::Method, path: &str) -> Result<T, Error>
+    fn make_request<T>(&self, method: reqwest::Method, path: &str) -> Result<T>
     where
         T: Debug + DeserializeOwned,
     {
         // construct the url we want to contact
-        let url_path = self.base_url.join(path).unwrap();
-        Ok(self.execute_request(method, url_path)
-            .unwrap()
-            .result
-            .unwrap())
+        let url_path = self.base_url.join(path)?;
+        Ok(self.execute_request(method, url_path)?.result.ok_or(Error::NoResultsReturned)?)
     }
 
-    #[allow(unused)]
     fn make_request_params<T>(
         &self,
         method: reqwest::Method,
         path: &str,
         params: &[(&str, &str)],
-    ) -> Result<T, Error>
+    ) -> Result<T>
     where
         T: Debug + DeserializeOwned,
     {
         // construct the url we want to contact
-        let mut url_path = self.base_url.join(path).unwrap();
+        let mut url_path = self.base_url.join(path)?;
         url_path.query_pairs_mut().clear();
         params.iter().for_each(|&(k, v)| {
             url_path.query_pairs_mut().append_pair(k, v);
         });
 
-        Ok(self.execute_request(method, url_path)
-            .unwrap()
-            .result
-            .unwrap())
+        Ok(self.execute_request(method, url_path)?.result.ok_or(Error::NoResultsReturned)?)
+    }
+
+    fn get_all<T>(&self, path: &str) -> Result<Vec<T>>
+    where
+        T: Debug + DeserializeOwned,
+    {
+        let mut page_num = 1u32;
+        let mut url_path = self.base_url.join(path)?;
+        let mut output: Vec<T> = Vec::new();
+
+        loop {
+            // build the url for that page
+            // TODO: clean this up?
+
+            url_path.set_query(Some(&format!("page={}", page_num)));
+            let resp: Response<Vec<T>> =
+                self.execute_request(reqwest::Method::Get, url_path.clone())?;
+            if !resp.success {
+                return Err(Error::NotSuccess);
+            }
+
+            output.extend(resp.result.ok_or(Error::NoResultsReturned)?);
+            page_num += 1;
+
+            // check if we received all of the elements
+            let page_info = &resp.result_info.ok_or(Error::NoResultsReturned)?;
+            debug!("page_info: {:?}", page_info);
+            if page_info.count < page_info.per_page
+                || page_info.page * page_info.per_page == page_info.total_count
+            {
+                return Ok(output);
+            }
+        }
+    }
+
+    fn get_all_params<T>(&self, path: &str, params: &[(&str, &str)]) -> Result<Vec<T>>
+    where
+        T: Debug + DeserializeOwned,
+    {
+        if params.iter().any(|&(k, _)| k == "page") {
+            return Err(Error::InvalidOptions);
+        }
+        let mut page_num = 1u32;
+
+        // construct the url we want to contact with the passed in params
+        let mut url_path = self.base_url.join(path)?;
+        url_path.query_pairs_mut().clear();
+        params.iter().for_each(|&(k, v)| {
+            url_path.query_pairs_mut().append_pair(k, v);
+        });
+        let orig_query = url_path.query().ok_or(Error::NoResultsReturned)?.to_string();
+
+        let mut output: Vec<T> = Vec::new();
+
+        loop {
+            // build the url for that page
+            // TODO: clean this up?
+            debug!("Getting page {}", page_num);
+            url_path.set_query(Some(&format!("{}&page={}", orig_query, page_num)));
+            let resp: Response<Vec<T>> =
+                self.execute_request(reqwest::Method::Get, url_path.clone())?;
+            if !resp.success {
+                return Err(Error::NotSuccess);
+            }
+
+            output.extend(resp.result.ok_or(Error::NoResultsReturned)?);
+            page_num += 1;
+
+            // check if we received all of the elements
+            let page_info = &resp.result_info.ok_or(Error::NoResultsReturned)?;
+            debug!("page_info: {:?}", page_info);
+            if page_info.count < page_info.per_page
+                || page_info.page * page_info.per_page == page_info.total_count
+            {
+                return Ok(output);
+            }
+        }
     }
 }
 
 #[cfg(test)]
-mod test {
+mod testenv {
     use super::*;
     use dotenv;
 
     lazy_static! {
         static ref API_KEY: String = dotenv::var("cloudflare_key").unwrap();
         static ref EMAIL: String = dotenv::var("email").unwrap();
-        pub static ref API: Cloudflare = Cloudflare::new(&API_KEY, &EMAIL, "https://api.cloudflare.com/client/v4/").unwrap();
+        pub static ref DOMAIN: String = dotenv::var("domain").unwrap();
+        pub static ref API: Cloudflare =
+            Cloudflare::new(&API_KEY, &EMAIL, "https://api.cloudflare.com/client/v4/").unwrap();
     }
 
     #[test]
