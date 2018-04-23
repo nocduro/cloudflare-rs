@@ -1,5 +1,4 @@
 use {Cloudflare, Error};
-use reqwest::Method::Get;
 
 #[derive(Deserialize, Debug)]
 pub struct User {
@@ -22,7 +21,7 @@ pub struct User {
 }
 
 pub fn user_details(api: &Cloudflare) -> Result<User, Error> {
-    Ok(api.make_request(Get, "user")?)
+    Ok(api.make_get_req("user")?)
 }
 
 #[allow(unused)]

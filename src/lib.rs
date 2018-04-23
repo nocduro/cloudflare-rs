@@ -4,6 +4,7 @@ extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
 extern crate serde_json;
 extern crate url;
 #[macro_use]
@@ -18,6 +19,7 @@ extern crate lazy_static;
 use std::io::Read;
 
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use std::fmt::Debug;
 
 use self::url::Url;
@@ -84,24 +86,19 @@ impl Cloudflare {
         })
     }
 
-    fn execute_request<T>(&self, method: reqwest::Method, url: Url) -> Result<Response<T>>
+    fn execute_request<T>(&self, mut request: reqwest::RequestBuilder) -> Result<Response<T>>
     where
         T: Debug + DeserializeOwned,
     {
-        debug!("executing request: {:?}", url);
-        let mut request = reqwest::Request::new(method, url);
-        request.headers_mut().set(XAuthKey(self.api_key.clone()));
-        request
-            .headers_mut()
-            .set(XAuthEmail(self.api_email.clone()));
-
-        let mut response = self.client.execute(request)?;
+        let mut response = request.header(XAuthKey(self.api_key.clone()))
+            .header(XAuthEmail(self.api_email.clone()))
+            .send()?;
 
         // read in response, and deserialize
         let mut response_json = String::new();
         response.read_to_string(&mut response_json)?;
 
-        debug!("response_json: {}", response_json);
+        // println!("response_json: {}", response_json);
         let parsed: Response<T> = serde_json::from_str(&response_json)?;
         if !parsed.success {
             // handle Cloudflare specific errors here
@@ -112,32 +109,45 @@ impl Cloudflare {
         Ok(parsed)
     }
 
-    fn make_request<T>(&self, method: reqwest::Method, path: &str) -> Result<T>
-    where
-        T: Debug + DeserializeOwned,
+    fn execute_post_req<T>(&self, url: Url, body: Value) -> Result<Response<T>>
+    where T: Debug + DeserializeOwned
     {
-        // construct the url we want to contact
-        let url_path = self.base_url.join(path)?;
-        Ok(self.execute_request(method, url_path)?.result.ok_or(Error::NoResultsReturned)?)
+        let mut req = self.client.post(url);
+        req.json(&body);
+        self.execute_request(req)
+    }
+    
+    fn make_post_req<T>(&self, path: &str, body: Value) -> Result<T>
+    where T: Debug + DeserializeOwned
+    {
+        let url = self.base_url.join(path)?;
+        self.execute_post_req(url, body)?.result.ok_or(Error::NotSuccess)
     }
 
-    fn make_request_params<T>(
-        &self,
-        method: reqwest::Method,
-        path: &str,
-        params: &[(&str, &str)],
-    ) -> Result<T>
-    where
-        T: Debug + DeserializeOwned,
+    fn execute_get_req<T>(&self, url: Url) -> Result<Response<T>>
+    where T: Debug + DeserializeOwned
+    {
+        let req = self.client.get(url);
+        self.execute_request(req)
+    }
+
+    fn make_get_req<T>(&self, path: &str) -> Result<T>
+    where T: Debug + DeserializeOwned
+    {
+        let url = self.base_url.join(path)?;
+        self.execute_get_req(url)?.result.ok_or(Error::NotSuccess)
+    }
+
+    fn make_get_req_param<T>(&self, path: &str, params: &[(&str, &str)]) -> Result<T> 
+    where T: Debug + DeserializeOwned
     {
         // construct the url we want to contact
-        let mut url_path = self.base_url.join(path)?;
-        url_path.query_pairs_mut().clear();
+        let mut url = self.base_url.join(path)?;
+        url.query_pairs_mut().clear();
         params.iter().for_each(|&(k, v)| {
-            url_path.query_pairs_mut().append_pair(k, v);
+            url.query_pairs_mut().append_pair(k, v);
         });
-
-        Ok(self.execute_request(method, url_path)?.result.ok_or(Error::NoResultsReturned)?)
+        self.execute_get_req(url)?.result.ok_or(Error::NotSuccess)
     }
 
     fn get_all<T>(&self, path: &str) -> Result<Vec<T>>
@@ -154,7 +164,7 @@ impl Cloudflare {
 
             url_path.set_query(Some(&format!("page={}", page_num)));
             let resp: Response<Vec<T>> =
-                self.execute_request(reqwest::Method::Get, url_path.clone())?;
+                self.execute_get_req(url_path.clone())?;
             if !resp.success {
                 return Err(Error::NotSuccess);
             }
@@ -198,7 +208,7 @@ impl Cloudflare {
             debug!("Getting page {}", page_num);
             url_path.set_query(Some(&format!("{}&page={}", orig_query, page_num)));
             let resp: Response<Vec<T>> =
-                self.execute_request(reqwest::Method::Get, url_path.clone())?;
+                self.execute_get_req(url_path.clone())?;
             if !resp.success {
                 return Err(Error::NotSuccess);
             }

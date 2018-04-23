@@ -1,5 +1,4 @@
 use {Cloudflare, Error};
-use reqwest::Method::Get;
 
 pub mod dns;
 
@@ -19,26 +18,26 @@ pub struct Plan {
 
 #[derive(Debug, Deserialize)]
 pub struct Zone {
-    id: String,
-    development_mode: u32,
-    original_name_servers: Option<Vec<String>>,
-    original_registrar: Option<String>,
-    original_dnshost: Option<String>,
-    created_on: String,
-    modified_on: String,
-    owner: HashMap<String, String>, // this should be its own `User` struct at some point
-    permissions: Vec<String>, // this should be a permission enum
-    plan: Plan,
-    plan_pending: Option<Plan>,
-    status: Option<String>, // enum ?
-    paused: Option<bool>,
+    pub id: String,
+    pub development_mode: u32,
+    pub original_name_servers: Option<Vec<String>>,
+    pub original_registrar: Option<String>,
+    pub original_dnshost: Option<String>,
+    pub created_on: String,
+    pub modified_on: String,
+    pub owner: HashMap<String, String>, // this should be its own `User` struct at some point
+    pub permissions: Vec<String>, // this should be a permission enum
+    pub plan: Plan,
+    pub plan_pending: Option<Plan>,
+    pub status: Option<String>, // enum ?
+    pub paused: Option<bool>,
     #[serde(rename = "type")]
-    typex: Option<String>,
-    name_servers: Vec<String>,
+    pub typex: Option<String>,
+    pub name_servers: Vec<String>,
 }
 
 pub fn get_zoneid(api: &Cloudflare, domain: &str) -> Result<String, Error> {
-    let zone: Vec<Zone> = api.make_request_params(Get, "zones", &[("name", domain)])?;
+    let zone: Vec<Zone> = api.make_get_req_param("zones", &[("name", domain)])?;
     if zone.len() < 1 {
         return Err(Error::InvalidOptions)
     }

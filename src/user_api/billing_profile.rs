@@ -1,5 +1,4 @@
 use {Cloudflare, Error};
-use reqwest::Method::Get;
 
 #[derive(Deserialize, Debug)]
 pub struct BillingProfile {
@@ -23,7 +22,7 @@ pub struct BillingProfile {
 }
 
 pub fn billing_profile(api: &Cloudflare) -> Result<BillingProfile, Error> {
-    Ok(api.make_request(Get, "user/billing/profile")?)
+    Ok(api.make_get_req("user/billing/profile")?)
 }
 
 #[cfg(test)]
@@ -32,6 +31,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_billing_profile() {
         assert!(billing_profile(&API).is_ok());
     }
