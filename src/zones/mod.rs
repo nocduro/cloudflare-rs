@@ -1,6 +1,7 @@
 use {Cloudflare, Error};
 
 pub mod dns;
+pub mod purge;
 
 use std::collections::HashMap;
 

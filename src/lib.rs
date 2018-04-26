@@ -150,6 +150,22 @@ impl Cloudflare {
         self.execute_get_req(url)?.result.ok_or(Error::NotSuccess)
     }
 
+    fn make_delete_req<T>(&self, path: &str, body: Value) -> Result<T> 
+    where T: Debug + DeserializeOwned
+    {
+        // construct the url we want to contact
+        let url = self.base_url.join(path)?;
+        self.execute_delete_req(url, body)?.result.ok_or(Error::NotSuccess)
+    }
+
+    fn execute_delete_req<T>(&self, url: Url, body: Value) -> Result<Response<T>>
+    where T: Debug + DeserializeOwned
+    {
+        let mut req = self.client.delete(url);
+        req.json(&body);
+        self.execute_request(req)
+    }
+
     fn get_all<T>(&self, path: &str) -> Result<Vec<T>>
     where
         T: Debug + DeserializeOwned,
