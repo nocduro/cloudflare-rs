@@ -31,8 +31,8 @@ pub fn update_user(api: &Cloudflare, user: &User) -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use testenv::API;
     use super::*;
+    use testenv::API;
 
     #[test]
     fn test_user_details() {
