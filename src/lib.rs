@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate hyper;
 extern crate reqwest;
 extern crate serde;
@@ -29,9 +28,6 @@ pub mod zones;
 pub mod errors;
 
 pub use errors::{Error, Result};
-
-header! { (XAuthKey, "X-Auth-Key") => [String] }
-header! { (XAuthEmail, "X-Auth-Email") => [String] }
 
 #[derive(Debug)]
 pub struct Cloudflare {
@@ -86,12 +82,13 @@ impl Cloudflare {
         })
     }
 
-    fn execute_request<T>(&self, mut request: reqwest::RequestBuilder) -> Result<Response<T>>
+    fn execute_request<T>(&self, request: reqwest::RequestBuilder) -> Result<Response<T>>
     where
         T: Debug + DeserializeOwned,
     {
-        let mut response = request.header(XAuthKey(self.api_key.clone()))
-            .header(XAuthEmail(self.api_email.clone()))
+        let mut response = request
+            .header("X-Auth-Key", self.api_key.clone())
+            .header("X-Auth-Email", self.api_email.clone())
             .send()?;
 
         // read in response, and deserialize
@@ -112,8 +109,7 @@ impl Cloudflare {
     fn execute_post_req<T>(&self, url: Url, body: Value) -> Result<Response<T>>
     where T: Debug + DeserializeOwned
     {
-        let mut req = self.client.post(url);
-        req.json(&body);
+        let req = self.client.post(url).json(&body);
         self.execute_request(req)
     }
     
@@ -161,8 +157,7 @@ impl Cloudflare {
     fn execute_delete_req<T>(&self, url: Url, body: Value) -> Result<Response<T>>
     where T: Debug + DeserializeOwned
     {
-        let mut req = self.client.delete(url);
-        req.json(&body);
+        let req = self.client.delete(url).json(&body);
         self.execute_request(req)
     }
 
