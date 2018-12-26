@@ -189,6 +189,19 @@ impl Cloudflare {
         self.execute_request(req)
     }
 
+    fn get_params<T>(&self, path: &str, params: &[(&str, &str)]) -> Result<Response<T>>
+    where
+        T: Debug + DeserializeOwned,
+    {
+        // construct the url we want to contact with the passed in params
+        let mut url_path = self.base_url.join(path)?;
+        params.iter().for_each(|&(k, v)| {
+            url_path.query_pairs_mut().append_pair(k, v);
+        });
+
+        self.execute_get_req(url_path)
+    }
+
     fn get_all<T>(&self, path: &str) -> Result<Vec<T>>
     where
         T: Debug + DeserializeOwned,
