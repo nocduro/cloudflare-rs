@@ -113,12 +113,30 @@ impl Cloudflare {
         self.execute_request(req)
     }
 
+    fn execute_put_req<T>(&self, url: Url, body: Value) -> Result<Response<T>>
+    where
+        T: Debug + DeserializeOwned,
+    {
+        let req = self.client.put(url).json(&body);
+        self.execute_request(req)
+    }
+
     fn make_post_req<T>(&self, path: &str, body: Value) -> Result<T>
     where
         T: Debug + DeserializeOwned,
     {
         let url = self.base_url.join(path)?;
         self.execute_post_req(url, body)?
+            .result
+            .ok_or(Error::NotSuccess)
+    }
+
+    fn make_put_req<T>(&self, path: &str, body: Value) -> Result<T>
+    where
+        T: Debug + DeserializeOwned,
+    {
+        let url = self.base_url.join(path)?;
+        self.execute_put_req(url, body)?
             .result
             .ok_or(Error::NotSuccess)
     }
