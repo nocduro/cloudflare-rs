@@ -1,4 +1,6 @@
-# `cloudflare-rs` - Cloudflare api client written in Rust
+This library will no longer be updated since there is now an official cloudflare rust library: https://github.com/cloudflare/cloudflare-rs
+
+### `cloudflare-rs` - Cloudflare api client written in Rust
 Note: very little is actually done. 
 I've only been adding stuff that is useful for myself, feel free to make a pull request with more endpoints added.
 
