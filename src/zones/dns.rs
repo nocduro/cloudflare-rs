@@ -1,7 +1,7 @@
 use {Cloudflare, Error};
 
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum RecordType {
@@ -93,8 +93,8 @@ pub fn list_dns_of_type(
 #[cfg(test)]
 mod tests {
     extern crate env_logger;
-    use testenv::{API, DOMAIN};
     use super::*;
+    use testenv::{API, DOMAIN};
 
     #[test]
     fn get_dns() {

@@ -1,8 +1,7 @@
-
 use reqwest;
+use serde_json;
 use std;
 use std::result;
-use serde_json;
 use url;
 
 pub type Result<T> = result::Result<T, Error>;
@@ -15,7 +14,7 @@ pub enum Error {
     Reqwest(reqwest::Error),
     Json(serde_json::Error),
     Io(std::io::Error),
-    Url(url::ParseError)
+    Url(url::ParseError),
 }
 
 impl From<reqwest::Error> for Error {

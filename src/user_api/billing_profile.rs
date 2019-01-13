@@ -27,8 +27,8 @@ pub fn billing_profile(api: &Cloudflare) -> Result<BillingProfile, Error> {
 
 #[cfg(test)]
 mod tests {
-    use testenv::API;
     use super::*;
+    use testenv::API;
 
     #[test]
     #[ignore]

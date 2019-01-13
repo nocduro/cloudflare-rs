@@ -10,7 +10,7 @@ pub struct Plan {
     id: String,
     name: String,
     price: f64,
-    currency: String, // enum?
+    currency: String,  // enum?
     frequency: String, // enum?
     legacy_id: String, // enum?
     is_subscribed: bool,
@@ -27,7 +27,7 @@ pub struct Zone {
     pub created_on: String,
     pub modified_on: String,
     pub owner: HashMap<String, String>, // this should be its own `User` struct at some point
-    pub permissions: Vec<String>, // this should be a permission enum
+    pub permissions: Vec<String>,       // this should be a permission enum
     pub plan: Plan,
     pub plan_pending: Option<Plan>,
     pub status: Option<String>, // enum ?
@@ -40,16 +40,16 @@ pub struct Zone {
 pub fn get_zoneid(api: &Cloudflare, domain: &str) -> Result<String, Error> {
     let zone: Vec<Zone> = api.make_get_req_param("zones", &[("name", domain)])?;
     if zone.len() < 1 {
-        return Err(Error::InvalidOptions)
+        return Err(Error::InvalidOptions);
     }
-    Ok(zone[0].id.clone())    
+    Ok(zone[0].id.clone())
 }
 
 #[cfg(test)]
 mod tests {
     extern crate env_logger;
-    use testenv::{API, DOMAIN};
     use super::*;
+    use testenv::{API, DOMAIN};
 
     #[test]
     fn get_zone_id_test() {
