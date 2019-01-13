@@ -86,8 +86,8 @@ impl Cloudflare {
         T: Debug + DeserializeOwned,
     {
         let mut response = request
-            .header("X-Auth-Key", self.api_key.clone())
-            .header("X-Auth-Email", self.api_email.clone())
+            .header("X-Auth-Key", self.api_key.as_str())
+            .header("X-Auth-Email", self.api_email.as_str())
             .send()?;
 
         // read in response, and deserialize
